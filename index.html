@@ -5,16 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI English Tutor</title>
 <style>
-body { font-family: Arial, sans-serif; background:#f0f6ff; margin:0; padding:0;}
-header { background:#1E88E5; color:white; padding:15px; font-size:22px; text-align:center;}
+body { font-family:'Comic Sans MS',Arial,sans-serif; background:linear-gradient(to bottom,#f0f6ff,#e0f7ff); margin:0;padding:0;}
+header { background:#1E88E5; color:white; padding:20px; font-size:24px; text-align:center; box-shadow:0 4px 6px rgba(0,0,0,0.1);}
 .nav { display:flex; justify-content:space-around; background:white; padding:10px 0;}
-.nav button { background:#e3f2fd; border:none; padding:8px 16px; border-radius:6px; cursor:pointer;}
+.nav button { background:#ffdd57; color:#333; font-weight:bold; transition:all 0.2s; border-radius:10px; padding:10px 20px; cursor:pointer;}
+.nav button:hover { transform:scale(1.1); background:#ffd700;}
 .section { padding:20px; display:none;}
-.section.active {display:block;}
-.card { background:white; padding:20px; border-radius:10px; margin-top:10px;}
+.section.active { display:block;}
+.card { background:white; padding:25px; border-radius:15px; margin-top:15px; box-shadow:0 4px 10px rgba(0,0,0,0.1);}
 input, button { font-size:18px; padding:10px; border-radius:6px; border:1px solid #bbb; margin-top:10px;}
 button { background:#1E88E5; color:white; border:none; cursor:pointer;}
-.word-btn { background:#64b5f6; width:100%; margin:5px 0;}
+#result { font-weight:bold; font-size:18px; margin-top:10px; animation:pop 0.3s ease-in-out;}
+@keyframes pop {0% {transform: scale(0.8); opacity:0;}100% {transform: scale(1); opacity:1;}}
+progress { width:100%; height:20px; border-radius:10px; overflow:hidden; margin-top:10px;}
 </style>
 </head>
 <body>
@@ -26,20 +29,22 @@ button { background:#1E88E5; color:white; border:none; cursor:pointer;}
   <button onclick="showSection('words')">📚 生词本</button>
 </div>
 
-<!-- 闯关听写 -->
 <div id="listen" class="section active">
   <div><b>当前关卡：</b><span id="levelDisplay">1</span></div>
   <div class="card">
     <div id="sentenceDisplay">点击“播放句子”开始</div>
     <button onclick="playSentence()">▶ 播放句子</button><br>
-    <input id="answer" placeholder="输入听到的英文句子">
+    <input id="answer" placeholder="输入英文">
+    <div id="lengthHint" style="margin-top:5px; color:#555;"></div>
     <button onclick="checkAnswer()">提交</button>
     <div id="result"></div>
-    <div><b>完成句数：</b><span id="doneCount">0</span>/5</div>
+    <div>
+      <b>完成句数：</b><span id="doneCount">0</span>/5
+      <progress id="progress" value="0" max="5"></progress>
+    </div>
   </div>
 </div>
 
-<!-- 生词本 -->
 <div id="words" class="section">
   <div class="card">
     <b>生词本：</b>
@@ -49,25 +54,30 @@ button { background:#1E88E5; color:white; border:none; cursor:pointer;}
 </div>
 
 <script>
-// 🌟 初版句子库（示例200句可扩展）
+// 初版句子库（中→英）
 const sentences = [
-"I like to play football with my friends.",
-"She reads a book every evening before bed.",
-"We are going to the park this afternoon.",
-"My father cooks delicious food on weekends.",
-"The cat is sleeping under the warm blanket.",
-"He enjoys drawing pictures in his notebook.",
-"Today is a sunny day for a picnic.",
-"Please help me carry these heavy bags.",
-"My little sister loves her new doll.",
-"We watched a movie together last night."
-// …你可以继续扩展到200句
+{en:"I like to play football with my friends.", cn:"我喜欢和朋友踢足球。"},
+{en:"She reads a book every evening before bed.", cn:"她每天晚上睡觉前都会看书。"},
+{en:"We are going to the park this afternoon.", cn:"今天下午我们要去公园。"},
+{en:"My father cooks delicious food on weekends.", cn:"我爸爸周末会做美味的食物。"},
+{en:"The cat is sleeping under the warm blanket.", cn:"猫正睡在温暖的毯子下面。"},
+{en:"He enjoys drawing pictures in his notebook.", cn:"他喜欢在笔记本上画画。"},
+{en:"Today is a sunny day for a picnic.", cn:"今天是适合野餐的晴天。"},
+{en:"Please help me carry these heavy bags.", cn:"请帮我提这些重包。"},
+{en:"My little sister loves her new doll.", cn:"我妹妹喜欢她的新洋娃娃。"},
+{en:"We watched a movie together last night.", cn:"我们昨晚一起看了一部电影。"}
+// …可扩展到200句
 ];
 
-let currentSentence = "";
+let currentSentence = {};
 let doneCount = 0;
 let level = 1;
 let wrongWords = JSON.parse(localStorage.getItem("wrongWords")||"[]");
+
+const ansInput = document.getElementById("answer");
+ansInput.addEventListener('input', ()=>{
+  document.getElementById("lengthHint").innerText = `输入长度：${ansInput.value.length} / ${currentSentence.en.length}`;
+});
 
 // 切换界面
 function showSection(id){
@@ -76,50 +86,68 @@ function showSection(id){
   showWrongWords();
 }
 
-// 播放句子
+// 播放中文提示 + 英文语音
 function playSentence(){
   currentSentence = sentences[Math.floor(Math.random()*sentences.length)];
-  document.getElementById("sentenceDisplay").innerText = currentSentence;
-  const utter = new SpeechSynthesisUtterance(currentSentence);
+  document.getElementById("sentenceDisplay").innerText = currentSentence.cn;
+  const utter = new SpeechSynthesisUtterance(currentSentence.en);
   utter.lang = "en-US";
   speechSynthesis.speak(utter);
+  document.getElementById("answer").value = "";
+  document.getElementById("lengthHint").innerText = "";
+  document.getElementById("result").innerHTML = "";
 }
 
-// 判分
+// 错误划线标注
+function markMistakes(userInput, correct){
+  let result = '';
+  for(let i=0;i<correct.length;i++){
+    if(userInput[i] === correct[i]) result += correct[i];
+    else result += `<span style="text-decoration:underline red;">${userInput[i]||''}</span>`;
+  }
+  return result;
+}
+
+// 检查答案
 function checkAnswer(){
-  const ans = document.getElementById("answer").value.trim().toLowerCase();
-  if(ans === currentSentence.toLowerCase()){
-    document.getElementById("result").innerHTML = "✔ 正确！";
+  const ans = document.getElementById("answer").value.trim();
+  if(ans.toLowerCase() === currentSentence.en.toLowerCase()){
+    document.getElementById("result").innerHTML = "✔ 太棒了！完全正确！";
     doneCount++;
     document.getElementById("doneCount").innerText = doneCount;
+    document.getElementById("progress").value = doneCount;
     if(doneCount >=5){
       level++;
       doneCount = 0;
-      alert("🎉 完成本关，解锁下一关！当前关卡：" + level);
+      alert("🎉 恭喜！你完成了关卡 " + (level-1) + "，解锁下一关！");
       document.getElementById("levelDisplay").innerText = level;
+      document.getElementById("progress").value = doneCount;
     }
-  }else{
-    document.getElementById("result").innerHTML = "❌ 错！正确：" + currentSentence;
-    wrongWords.push(currentSentence);
-    localStorage.setItem("wrongWords", JSON.stringify(wrongWords));
+    playSentence(); // 自动加载下一句
+  } else {
+    document.getElementById("result").innerHTML = "❌ 有错误，请修改：" + markMistakes(ans,currentSentence.en);
+    if(!wrongWords.includes(currentSentence)) {
+      wrongWords.push(currentSentence);
+      localStorage.setItem("wrongWords", JSON.stringify(wrongWords));
+    }
   }
-  document.getElementById("answer").value = "";
-  showWrongWords();
 }
 
 // 生词本
 function showWrongWords(){
   const ul = document.getElementById("wordList");
   ul.innerHTML = "";
-  wrongWords.forEach(w=>{ul.innerHTML += `<li>${w}</li>`});
+  wrongWords.forEach(w=>{
+    ul.innerHTML += `<li>${w.cn} → ${w.en}</li>`;
+  });
 }
 
+// 清空生词本
 function clearWords(){
   wrongWords = [];
   localStorage.setItem("wrongWords", JSON.stringify(wrongWords));
   showWrongWords();
 }
-
 </script>
 </body>
 </html>

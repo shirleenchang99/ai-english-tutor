@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI English Tutor</title>
+
+<style>
+  body { font-family: Arial, sans-serif; background:#f0f6ff; margin:0; }
+  header { background:#1E88E5; color:white; padding:15px; font-size:20px; text-align:center; }
+  .nav { display:flex; justify-content:space-around; background:white; padding:10px 0; }
+  .nav button { background:#e3f2fd; border:none; padding:8px 16px; border-radius:6px; }
+  .section { padding:20px; }
+  .card { background:white; padding:20px; border-radius:10px; margin-top:10px; }
+  input, button {
+    font-size:18px; padding:10px; margin-top:10px;
+    border-radius:6px; border:1px solid #bbb;
+  }
+  button { background:#1E88E5; color:white; border:none; }
+  .word-btn { background:#64b5f6; width:100%; margin:5px 0; }
+  .hidden { display:none; }
+</style>
+</head>
+
+<body>
+
+<header>AI English Tutor</header>
+
+<div class="nav">
+  <button onclick="showSection('lookup')">🔍 查词</button>
+  <button onclick="showSection('listen')">🎧 听写</button>
+  <button onclick="showSection('words')">📚 生词本</button>
+</div>
+
+<!-- 查词 -->
+<div id="lookup" class="section">
+  <input id="inputText" placeholder="请输入英文…">
+  <button onclick="translateText()">查询</button>
+
+  <div class="card">
+    <div><b>中文解释：</b></div>
+    <div id="outputCn">（等待输入）</div>
+    <button onclick="speak()">🔊发音</button>
+    <button onclick="addToListen()">加入听写</button>
+  </div>
+</div>
+
+<!-- 听写 -->
+<div id="listen" class="section hidden">
+  <div><b>选择词库：</b></div>
+  <button class="word-btn" onclick="selectLevel('k1')">K1 启蒙</button>
+  <button class="word-btn" onclick="selectLevel('primary')">小学</button>
+  <button class="word-btn" onclick="selectLevel('adult')">成人</button>
+  <button class="word-btn" onclick="selectLevel('business')">商务</button>
+
+  <div class="card">
+    <button onclick="playWord()">▶ 播放英文</button>
+    <input id="answer" placeholder="请输入听到的英文">
+    <button onclick="checkAnswer()">提交</button>
+    <div id="result"></div>
+  </div>
+</div>
+
+<!-- 生词本 -->
+<div id="words" class="section hidden">
+  <div class="card">
+    <b>生词本：</b>
+    <ul id="wordList"></ul>
+  </div>
+</div>
+
+<script>
+// 📚 分级词库数据（示例版，可扩展）
+const wordLevels = {
+  k1: ["apple","cat","dog","red","blue","ball","water"],
+  primary: ["family","school","table","happy","morning","banana"],
+  adult: ["experience","market","decision","improve","customer"],
+  business: ["meeting","contract","management","investment","delivery"]
+};
+
+let selectedLevel = "k1";
+let currentWord = "";
+let wrongWords = JSON.parse(localStorage.getItem("wrongWords") || "[]");
+
+// 🔹 切换界面
+function showSection(id){
+  document.querySelectorAll(".section").forEach(s=>s.classList.add("hidden"));
+  document.getElementById(id).classList.remove("hidden");
+  showWrongWords();
+}
+
+// 🔹 翻译
+async function translateText(){
+  const text = document.getElementById("inputText").value;
+  if(!text) return;
+  currentWord = text;
+  const res = await fetch(
+    `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=${encodeURI(text)}`
+  );
+  const data = await res.json();
+  document.getElementById("outputCn").innerText = data[0][0][0];
+}
+
+// 🔹 发音
+function speak(){
+  const utter = new SpeechSynthesisUtterance(currentWord);
+  utter.lang = "en-US";
+  speechSynthesis.speak(utter);
+}
+
+// 🔹 加入听写
+function addToListen(){
+  alert("已加入听写练习！");
+}
+
+// 🔹 选择词库
+function selectLevel(lv){
+  selectedLevel = lv;
+  alert("切换到词库：" + lv);
+}
+
+// 🔹 播放英文
+function playWord(){
+  const list = wordLevels[selectedLevel];
+  currentWord = list[Math.floor(Math.random()*list.length)];
+  speak();
+}
+
+// 🔹 判分
+function checkAnswer(){
+  const ans = document.getElementById("answer").value.trim().toLowerCase();
+  if(ans === currentWord){
+    document.getElementById("result").innerHTML = "✔ 正确！";
+  }else{
+    document.getElementById("result").innerHTML = `❌ 错！正确：${currentWord}`;
+    wrongWords.push(currentWord);
+    localStorage.setItem("wrongWords", JSON.stringify(wrongWords));
+    showWrongWords();
+  }
+  document.getElementById("answer").value = "";
+}
+
+// 🔹 生词本显示
+function showWrongWords(){
+  const ul = document.getElementById("wordList");
+  ul.innerHTML = "";
+  wrongWords.forEach(w=>{
+    ul.innerHTML += `<li>${w}</li>`;
+  });
+}
+</script>
+
+</body>
+</html>
